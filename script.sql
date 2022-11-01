@@ -170,3 +170,96 @@ FROM
     cars_bkp;
 
 DROP TABLE cars_bkp;
+
+-- Requirement: Delete duplicate entry for a car in the CARS table.
+DROP TABLE IF EXISTS cars;
+
+CREATE TABLE IF NOT EXISTS cars (
+    id int,
+    model varchar(50),
+    brand varchar(40),
+    color varchar(30),
+    make int
+);
+
+INSERT INTO
+    cars
+VALUES
+    (1, 'Model S', 'Tesla', 'Blue', 2018),
+    (2, 'EQS', 'Mercedes-Benz', 'Black', 2022),
+    (3, 'iX', 'BMW', 'Red', 2022),
+    (4, 'Ioniq 5', 'Hyundai', 'White', 2021),
+    (5, 'Model S', 'Tesla', 'Silver', 2018),
+    (6, 'Ioniq 5', 'Hyundai', 'Green', 2021);
+
+SELECT
+    *
+FROM
+    cars;
+
+-->> SOLUTION 1: Delete using CTID / ROWID (in Oracle)
+DELETE FROM
+    cars
+WHERE
+    ctid IN (
+        SELECT
+            max(ctid)
+        FROM
+            cars
+        GROUP BY
+            model,
+            brand
+        HAVING
+            count(1) > 1
+    );
+
+-->> SOLUTION 2: By creating a temporary unique id column
+ALTER TABLE
+    cars
+ADD
+    COLUMN row_num int generated always AS identity
+DELETE FROM
+    cars
+WHERE
+    row_num NOT IN (
+        SELECT
+            min(row_num)
+        FROM
+            cars
+        GROUP BY
+            model,
+            brand
+    );
+
+ALTER TABLE
+    cars DROP COLUMN row_num;
+
+-->> SOLUTION 3: By creating a backup table.
+CREATE TABLE cars_bkp AS
+SELECT
+    DISTINCT *
+FROM
+    cars;
+
+DROP TABLE cars;
+
+ALTER TABLE
+    cars_bkp RENAME TO cars;
+
+-->> SOLUTION 4: By creating a backup table without dropping the original table.
+CREATE TABLE cars_bkp AS
+SELECT
+    DISTINCT *
+FROM
+    cars;
+
+TRUNCATE TABLE cars;
+
+INSERT INTO
+    cars
+SELECT
+    DISTINCT *
+FROM
+    cars_bkp;
+
+DROP TABLE cars_bkp;
